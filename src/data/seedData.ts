@@ -5,79 +5,79 @@ export const seedData: AppData = {
   "players": [
     {
       "id": "p1",
-      "name": "Amanda"
-    },
-    {
-      "id": "p2",
-      "name": "Meja"
-    },
-    {
-      "id": "p3",
-      "name": "Freja W"
-    },
-    {
-      "id": "p4",
-      "name": "Mira"
-    },
-    {
-      "id": "p5",
-      "name": "Sarah"
-    },
-    {
-      "id": "p6",
-      "name": "Lisen"
-    },
-    {
-      "id": "p7",
-      "name": "Noheila"
-    },
-    {
-      "id": "p8",
-      "name": "Tuva"
-    },
-    {
-      "id": "p9",
-      "name": "Alva"
-    },
-    {
-      "id": "p10",
-      "name": "Sally"
-    },
-    {
-      "id": "p11",
       "name": "Aida"
     },
     {
-      "id": "p12",
-      "name": "Vanessa"
-    },
-    {
-      "id": "p13",
-      "name": "Selin"
-    },
-    {
-      "id": "p14",
+      "id": "p2",
       "name": "Alice"
     },
     {
-      "id": "p15",
-      "name": "Tesnim"
+      "id": "p3",
+      "name": "Alva"
     },
     {
-      "id": "p16",
+      "id": "p4",
       "name": "Ester"
     },
     {
-      "id": "p17",
-      "name": "Eylül"
+      "id": "p5",
+      "name": "Freja W"
     },
     {
-      "id": "p18",
+      "id": "p6",
+      "name": "Lily"
+    },
+    {
+      "id": "p7",
+      "name": "Meja"
+    },
+    {
+      "id": "p8",
+      "name": "Sarah"
+    },
+    {
+      "id": "p9",
+      "name": "Tuva"
+    },
+    {
+      "id": "p10",
+      "name": "Vanessa"
+    },
+    {
+      "id": "p11",
+      "name": "Amanda"
+    },
+    {
+      "id": "p12",
       "name": "Freja L"
     },
     {
+      "id": "p13",
+      "name": "Lisen"
+    },
+    {
+      "id": "p14",
+      "name": "Mira"
+    },
+    {
+      "id": "p15",
+      "name": "Noheila"
+    },
+    {
+      "id": "p16",
+      "name": "Sally"
+    },
+    {
+      "id": "p17",
+      "name": "Selin"
+    },
+    {
+      "id": "p18",
+      "name": "Tesnim"
+    },
+    {
       "id": "p19",
-      "name": "Lily"
+      "name": "Eylül"
     },
     {
       "id": "p20",
@@ -97,33 +97,21 @@ export const seedData: AppData = {
           "homeTeam": "Spånga IS FK 1",
           "awayTeam": "Norrtulls SK",
           "venue": "Ärvingehallen",
-          "altSquad": [
-            "p1",
-            "p3",
-            "p5",
-            "p6",
-            "p8",
-            "p2",
-            "p12",
-            "p15",
-            "p13"
-          ],
           "squad": [
             "p1",
+            "p2",
             "p3",
-            "p5",
-            "p7",
-            "p9",
             "p4",
-            "p11",
-            "p14",
-            "p16"
+            "p5",
+            "p6",
+            "p7",
+            "p8",
+            "p9",
+            "p10"
           ],
           "coaches": [
-            "Lotta",
             "Nina",
-            "Jonas",
-            "Peter"
+            "Jonas"
           ]
         },
         {
@@ -135,21 +123,19 @@ export const seedData: AppData = {
           "awayTeam": "Spånga IS FK 1",
           "venue": "Kanalhallen",
           "squad": [
-            "p2",
-            "p4",
-            "p6",
-            "p8",
-            "p10",
-            "p7",
-            "p13",
             "p11",
-            "p15"
+            "p12",
+            "p13",
+            "p14",
+            "p15",
+            "p16",
+            "p8",
+            "p17",
+            "p18"
           ],
           "coaches": [
-            "Lotta",
-            "Nina",
-            "Jonas",
-            "Peter"
+            "Peter",
+            "Mattias"
           ]
         }
       ]
@@ -167,21 +153,20 @@ export const seedData: AppData = {
           "awayTeam": "Kallhälls FF Vit",
           "venue": "Ärvingehallen",
           "squad": [
-            "p1",
-            "p15",
-            "p8",
-            "p9",
-            "p3",
-            "p6",
-            "p11",
+            "p2",
+            "p4",
+            "p19",
+            "p13",
+            "p7",
             "p14",
-            "p16"
+            "p16",
+            "p17",
+            "p9",
+            "p10"
           ],
           "coaches": [
-            "Lotta",
-            "Nina",
-            "Jonas",
-            "Peter"
+            "Peter",
+            "Nina"
           ]
         },
         {
@@ -193,22 +178,18 @@ export const seedData: AppData = {
           "awayTeam": "Spånga IS FK 1",
           "venue": "Telefonplanshallen",
           "squad": [
-            "p17",
-            "p18",
+            "p1",
             "p3",
-            "p19",
+            "p11",
+            "p12",
+            "p5",
             "p6",
-            "p13",
-            "p20",
             "p15",
-            "p8"
+            "p8",
+            "p20",
+            "p18"
           ],
-          "coaches": [
-            "Lotta",
-            "Nina",
-            "Jonas",
-            "Peter"
-          ]
+          "coaches": []
         }
       ]
     },
@@ -225,22 +206,16 @@ export const seedData: AppData = {
           "awayTeam": "Spånga IS FK 1",
           "venue": "Rödabergshallen",
           "squad": [
-            "p1",
             "p2",
-            "p12",
-            "p8",
-            "p9",
+            "p4",
+            "p19",
+            "p13",
+            "p6",
             "p20",
-            "p11",
-            "p16",
-            "p17"
+            "p9",
+            "p10"
           ],
-          "coaches": [
-            "Lotta",
-            "Nina",
-            "Jonas",
-            "Peter"
-          ]
+          "coaches": []
         },
         {
           "id": "m6",
@@ -251,21 +226,20 @@ export const seedData: AppData = {
           "awayTeam": "Hammarby IF FF 6",
           "venue": "Ärvingehallen",
           "squad": [
+            "p1",
             "p3",
+            "p11",
             "p19",
-            "p6",
+            "p16",
             "p7",
-            "p10",
-            "p5",
             "p15",
             "p8",
-            "p12"
+            "p17",
+            "p18"
           ],
           "coaches": [
             "Lotta",
-            "Nina",
-            "Jonas",
-            "Peter"
+            "Nina"
           ]
         }
       ]
@@ -283,15 +257,15 @@ export const seedData: AppData = {
           "awayTeam": "Spånga IS FK 1",
           "venue": "Kvarnholmens Sporthall",
           "squad": [
-            "p1",
-            "p15",
-            "p8",
+            "p11",
+            "p18",
             "p9",
             "p3",
-            "p7",
-            "p11",
-            "p14",
-            "p19"
+            "p5",
+            "p15",
+            "p1",
+            "p2",
+            "p6"
           ],
           "coaches": [
             "Lotta",
@@ -309,15 +283,15 @@ export const seedData: AppData = {
           "awayTeam": "Bagarmossen Kärrtorp BK",
           "venue": "Ärvingehallen",
           "squad": [
-            "p9",
-            "p1",
-            "p17",
-            "p6",
-            "p7",
-            "p10",
+            "p3",
+            "p11",
+            "p19",
             "p13",
+            "p15",
+            "p16",
+            "p17",
             "p20",
-            "p15"
+            "p18"
           ],
           "coaches": [
             "Lotta",
@@ -341,15 +315,15 @@ export const seedData: AppData = {
           "awayTeam": "Spånga IS FK 1",
           "venue": "Danderyds Gymnasium",
           "squad": [
-            "p2",
-            "p13",
-            "p12",
-            "p8",
-            "p3",
-            "p4",
+            "p7",
+            "p17",
+            "p10",
+            "p9",
+            "p5",
+            "p14",
             "p20",
-            "p16",
-            "p18"
+            "p4",
+            "p12"
           ],
           "coaches": [
             "Lotta",
@@ -367,15 +341,15 @@ export const seedData: AppData = {
           "awayTeam": "IFK Aspudden-Tellus Röd 2",
           "venue": "Ärvingehallen",
           "squad": [
-            "p1",
-            "p18",
-            "p3",
-            "p6",
             "p11",
+            "p12",
+            "p5",
+            "p13",
+            "p1",
             "p20",
-            "p16",
-            "p15",
-            "p12"
+            "p4",
+            "p18",
+            "p10"
           ],
           "coaches": [
             "Lotta",
@@ -399,15 +373,15 @@ export const seedData: AppData = {
           "awayTeam": "Spånga IS FK 1",
           "venue": "Boo Gårds Sporthall",
           "squad": [
-            "p13",
-            "p12",
-            "p8",
-            "p3",
-            "p7",
+            "p17",
+            "p10",
+            "p9",
+            "p5",
+            "p15",
             "p20",
-            "p11",
-            "p14",
-            "p10"
+            "p1",
+            "p2",
+            "p16"
           ],
           "coaches": [
             "Lotta",
@@ -425,15 +399,15 @@ export const seedData: AppData = {
           "awayTeam": "Huddinge IF 1",
           "venue": "Ärvingehallen",
           "squad": [
-            "p2",
-            "p4",
             "p7",
-            "p5",
-            "p13",
-            "p20",
-            "p11",
+            "p14",
             "p15",
-            "p14"
+            "p8",
+            "p17",
+            "p20",
+            "p1",
+            "p18",
+            "p2"
           ],
           "coaches": [
             "Lotta",

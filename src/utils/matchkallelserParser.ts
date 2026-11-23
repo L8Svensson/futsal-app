@@ -1,11 +1,7 @@
 import type { AppData, MatchInfo, Player, Week } from '../types'
 
 const MATCH_TITLE_RE = /^(\S+)\s+(\d{1,2}\/\d{1,2})\s+(\d{1,2}:\d{2})\s+(.+?)\s-\s(.+)$/
-
-function isBlankRow(row: unknown[] | undefined): boolean {
-  if (!row) return true
-  return row.every((cell) => cell === null || cell === undefined || cell === '')
-}
+const COACH_MARKER = 'Tränare:'
 
 function parseMatchTitle(title: string | null): Pick<MatchInfo, 'day' | 'date' | 'time' | 'homeTeam' | 'awayTeam'> | null {
   if (!title) return null
@@ -15,27 +11,36 @@ function parseMatchTitle(title: string | null): Pick<MatchInfo, 'day' | 'date' |
   return { day, date, time, homeTeam, awayTeam }
 }
 
+function asTrimmedString(cell: unknown): string | null {
+  if (typeof cell !== 'string') return null
+  const trimmed = cell.trim()
+  return trimmed === '' ? null : trimmed
+}
+
 /**
  * Parses the "Matchkallelser" sheet (array-of-arrays, `header: 1` layout) into
- * players + weeks. The sheet is laid out as repeating blocks of rows:
+ * players + weeks. Blocks are delimited purely by "Vecka N" week headers (col 0),
+ * so blank-row spacing and column widths between blocks can vary — only the
+ * literal "Tränare:" marker and "Vecka" headers are load-bearing:
  *   1. "Vecka N" week header (col 0)
  *   2. match titles for match 1 (col 0) and match 2 (col 4)
- *   3. venues for match 1 (col 0, optional "Alt:" marker col 2) and match 2 (col 4)
- *   4. one row per squad player: col 0 = match1 squad, col 2 = match1 alt squad,
- *      col 4 = match2 squad, col 6 = match2 alt squad
- *   5. a blank row
- *   6. coach rows: col 0/4 = "Tränare:" (first row only), col 1/5 = coach name
+ *   3. venues for match 1 (col 0) and match 2 (col 4)
+ *   4. squad rows: col 0 = match1 squad, col 4 = match2 squad — until, per
+ *      side, a "Tränare:" marker is seen in either the name column or the
+ *      next column over, after which further values in the next column over
+ *      are coach names (the marker itself may share a row with the last
+ *      squad name, sit alone, or lead a row together with the first coach
+ *      name — all three occur in practice).
  */
 export function parseMatchkallelserRows(rows: unknown[][]): AppData {
   const playersByName = new Map<string, Player>()
-  const weeks: Week[] = []
   let playerCounter = 0
   let matchCounter = 0
   let weekCounter = 0
 
   const getOrCreatePlayer = (rawName: unknown): string | null => {
-    if (typeof rawName !== 'string' || rawName.trim() === '') return null
-    const name = rawName.trim()
+    const name = asTrimmedString(rawName)
+    if (!name) return null
     let player = playersByName.get(name)
     if (!player) {
       playerCounter += 1
@@ -45,15 +50,40 @@ export function parseMatchkallelserRows(rows: unknown[][]): AppData {
     return player.id
   }
 
+  // Parses one match's squad/coaches from the rows between the venue row and
+  // the next week header, given that match's name/coach columns.
+  const parseSide = (blockRows: unknown[][], nameCol: number, coachCol: number) => {
+    const squad: string[] = []
+    const coaches: string[] = []
+    let seenCoachMarker = false
+
+    for (const row of blockRows) {
+      const nameVal = asTrimmedString(row[nameCol])
+      const coachVal = asTrimmedString(row[coachCol])
+      const markerHere = nameVal === COACH_MARKER || coachVal === COACH_MARKER
+
+      if (!seenCoachMarker && nameVal && nameVal !== COACH_MARKER) {
+        const playerId = getOrCreatePlayer(nameVal)
+        if (playerId) squad.push(playerId)
+      }
+      if (markerHere) seenCoachMarker = true
+      if (seenCoachMarker && coachVal && coachVal !== COACH_MARKER) {
+        coaches.push(coachVal)
+      }
+    }
+
+    return { squad, coaches }
+  }
+
+  const weeks: Week[] = []
   let i = 0
   while (i < rows.length) {
-    const weekHeader = rows[i]?.[0]
-    if (typeof weekHeader !== 'string' || !weekHeader.startsWith('Vecka')) {
+    const weekHeader = asTrimmedString(rows[i]?.[0])
+    if (!weekHeader || !weekHeader.startsWith('Vecka')) {
       i += 1
       continue
     }
     weekCounter += 1
-    const weekLabel = weekHeader
     i += 1
 
     const titleRow = rows[i] ?? []
@@ -66,59 +96,26 @@ export function parseMatchkallelserRows(rows: unknown[][]): AppData {
     const venue1 = (venueRow[0] as string | null) ?? ''
     const venue2 = (venueRow[4] as string | null) ?? ''
 
-    const squad1: string[] = []
-    const altSquad1: string[] = []
-    const squad2: string[] = []
-    const altSquad2: string[] = []
-
-    while (i < rows.length && !isBlankRow(rows[i])) {
-      const row = rows[i]
-      const p1 = getOrCreatePlayer(row[0])
-      if (p1) squad1.push(p1)
-      const p1Alt = getOrCreatePlayer(row[2])
-      if (p1Alt) altSquad1.push(p1Alt)
-      const p2 = getOrCreatePlayer(row[4])
-      if (p2) squad2.push(p2)
-      const p2Alt = getOrCreatePlayer(row[6])
-      if (p2Alt) altSquad2.push(p2Alt)
+    const blockStart = i
+    while (i < rows.length && !(asTrimmedString(rows[i]?.[0])?.startsWith('Vecka') ?? false)) {
       i += 1
     }
-    i += 1 // skip blank separator row
+    const blockRows = rows.slice(blockStart, i)
 
-    const coaches1: string[] = []
-    const coaches2: string[] = []
-    while (i < rows.length && !(typeof rows[i]?.[0] === 'string' && (rows[i][0] as string).startsWith('Vecka'))) {
-      const row = rows[i]
-      if (typeof row?.[1] === 'string' && row[1].trim() !== '') coaches1.push(row[1].trim())
-      if (typeof row?.[5] === 'string' && row[5].trim() !== '') coaches2.push(row[5].trim())
-      i += 1
-    }
+    const side1 = parseSide(blockRows, 0, 1)
+    const side2 = parseSide(blockRows, 4, 5)
 
     const matches: MatchInfo[] = []
     if (title1) {
       matchCounter += 1
-      matches.push({
-        id: `m${matchCounter}`,
-        ...title1,
-        venue: venue1,
-        altSquad: altSquad1.length > 0 ? altSquad1 : undefined,
-        squad: squad1,
-        coaches: coaches1,
-      })
+      matches.push({ id: `m${matchCounter}`, ...title1, venue: venue1, ...side1 })
     }
     if (title2) {
       matchCounter += 1
-      matches.push({
-        id: `m${matchCounter}`,
-        ...title2,
-        venue: venue2,
-        altSquad: altSquad2.length > 0 ? altSquad2 : undefined,
-        squad: squad2,
-        coaches: coaches2,
-      })
+      matches.push({ id: `m${matchCounter}`, ...title2, venue: venue2, ...side2 })
     }
 
-    weeks.push({ id: `w${weekCounter}`, label: weekLabel, matches })
+    weeks.push({ id: `w${weekCounter}`, label: weekHeader, matches })
   }
 
   return {
@@ -152,29 +149,24 @@ export function toMatchkallelserRows(data: AppData): unknown[][] {
     rows.push([
       match1?.venue ?? null,
       null,
-      match1?.altSquad?.length ? 'Alt:' : null,
+      null,
       null,
       match2?.venue ?? null,
       null,
-      match2?.altSquad?.length ? 'Alt:' : null,
+      null,
       null,
     ])
 
-    const squadRowCount = Math.max(
-      match1?.squad.length ?? 0,
-      match1?.altSquad?.length ?? 0,
-      match2?.squad.length ?? 0,
-      match2?.altSquad?.length ?? 0,
-    )
+    const squadRowCount = Math.max(match1?.squad.length ?? 0, match2?.squad.length ?? 0)
     for (let r = 0; r < squadRowCount; r += 1) {
       rows.push([
         match1?.squad[r] ? name(match1.squad[r]) : null,
         null,
-        match1?.altSquad?.[r] ? name(match1.altSquad[r]) : null,
+        null,
         null,
         match2?.squad[r] ? name(match2.squad[r]) : null,
         null,
-        match2?.altSquad?.[r] ? name(match2.altSquad[r]) : null,
+        null,
         null,
       ])
     }

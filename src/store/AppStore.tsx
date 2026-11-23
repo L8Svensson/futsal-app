@@ -1,12 +1,17 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react'
-import { useLocalStorageState } from '../hooks/useLocalStorageState'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
 import { seedData } from '../data/seedData'
 import type { AppData, MatchInfo, Player, Week } from '../types'
 
-const STORAGE_KEY = 'futsal-app-data'
+const EDIT_PASSWORD_SESSION_KEY = 'futsal-edit-password'
 
 interface AppStoreValue {
   data: AppData
+  loading: boolean
+  loadError: string | null
+  isEditUnlocked: boolean
+  unlockEditing: (password: string) => Promise<boolean>
+  lockEditing: () => void
   addPlayer: (name: string) => void
   renamePlayer: (id: string, name: string) => void
   removePlayer: (id: string) => void
@@ -28,129 +33,211 @@ function nextId(prefix: string) {
 }
 
 function emptyMatch(): MatchInfo {
-  return {
-    id: nextId('m'),
-    day: '',
-    date: '',
-    time: '',
-    homeTeam: '',
-    awayTeam: '',
-    venue: '',
-    squad: [],
-    coaches: [],
-  }
+  return { id: nextId('m'), day: '', date: '', time: '', homeTeam: '', awayTeam: '', venue: '', squad: [], coaches: [] }
 }
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useLocalStorageState<AppData>(STORAGE_KEY, seedData)
+  const [data, setData] = useState<AppData>({ players: [], weeks: [] })
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [editPassword, setEditPassword] = useState<string | null>(() => sessionStorage.getItem(EDIT_PASSWORD_SESSION_KEY))
+  const dataRef = useRef(data)
+  dataRef.current = data
+
+  // Initial load + realtime subscription so every open tab stays in sync.
+  useEffect(() => {
+    if (!supabase) {
+      setLoadError('Supabase is not configured (missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).')
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    const client = supabase
+    client
+      .from('app_state')
+      .select('data')
+      .eq('id', 1)
+      .single()
+      .then(({ data: row, error }) => {
+        if (cancelled) return
+        if (error) setLoadError(error.message)
+        else setData((row?.data as AppData) ?? { players: [], weeks: [] })
+        setLoading(false)
+      })
+
+    const channel = client
+      .channel('app_state_changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_state', filter: 'id=eq.1' }, (payload) => {
+        setData(payload.new.data as AppData)
+      })
+      .subscribe()
+
+    return () => {
+      cancelled = true
+      client.removeChannel(channel)
+    }
+  }, [])
+
+  const unlockEditing = useCallback(async (password: string) => {
+    if (!supabase) return false
+    const { data: ok, error } = await supabase.rpc('check_edit_password', { pw: password })
+    if (error || !ok) return false
+    sessionStorage.setItem(EDIT_PASSWORD_SESSION_KEY, password)
+    setEditPassword(password)
+    return true
+  }, [])
+
+  const lockEditing = useCallback(() => {
+    sessionStorage.removeItem(EDIT_PASSWORD_SESSION_KEY)
+    setEditPassword(null)
+  }, [])
+
+  // Optimistically applies `next` locally, then persists to Supabase; rolls
+  // back and surfaces an alert if the write is rejected (e.g. bad/missing password).
+  const persist = useCallback(
+    (next: AppData) => {
+      const previous = dataRef.current
+      setData(next)
+      if (!supabase) return
+      if (!editPassword) {
+        setData(previous)
+        window.alert('Editing is locked. Unlock it with the shared password first.')
+        return
+      }
+      supabase.rpc('update_app_data', { payload: next, pw: editPassword }).then(({ error }) => {
+        if (error) {
+          setData(previous)
+          window.alert(`Could not save: ${error.message}`)
+        }
+      })
+    },
+    [editPassword],
+  )
 
   const addPlayer = useCallback(
     (name: string) => {
       const trimmed = name.trim()
       if (!trimmed) return
-      setData((prev) => ({ ...prev, players: [...prev.players, { id: nextId('p'), name: trimmed } satisfies Player] }))
+      persist({ ...dataRef.current, players: [...dataRef.current.players, { id: nextId('p'), name: trimmed } satisfies Player] })
     },
-    [setData],
+    [persist],
   )
 
   const renamePlayer = useCallback(
     (id: string, name: string) => {
-      setData((prev) => ({
-        ...prev,
-        players: prev.players.map((p) => (p.id === id ? { ...p, name } : p)),
-      }))
+      persist({ ...dataRef.current, players: dataRef.current.players.map((p) => (p.id === id ? { ...p, name } : p)) })
     },
-    [setData],
+    [persist],
   )
 
   const removePlayer = useCallback(
     (id: string) => {
-      setData((prev) => ({
-        players: prev.players.filter((p) => p.id !== id),
-        weeks: prev.weeks.map((week) => ({
+      persist({
+        players: dataRef.current.players.filter((p) => p.id !== id),
+        weeks: dataRef.current.weeks.map((week) => ({
           ...week,
-          matches: week.matches.map((match) => ({
-            ...match,
-            squad: match.squad.filter((playerId) => playerId !== id),
-            altSquad: match.altSquad?.filter((playerId) => playerId !== id),
-          })),
+          matches: week.matches.map((match) => ({ ...match, squad: match.squad.filter((playerId) => playerId !== id) })),
         })),
-      }))
+      })
     },
-    [setData],
+    [persist],
   )
 
   const addWeek = useCallback(
     (label: string) => {
       const trimmed = label.trim()
       if (!trimmed) return
-      setData((prev) => ({ ...prev, weeks: [...prev.weeks, { id: nextId('w'), label: trimmed, matches: [] } satisfies Week] }))
+      persist({ ...dataRef.current, weeks: [...dataRef.current.weeks, { id: nextId('w'), label: trimmed, matches: [] } satisfies Week] })
     },
-    [setData],
+    [persist],
   )
 
   const removeWeek = useCallback(
     (weekId: string) => {
-      setData((prev) => ({ ...prev, weeks: prev.weeks.filter((w) => w.id !== weekId) }))
+      persist({ ...dataRef.current, weeks: dataRef.current.weeks.filter((w) => w.id !== weekId) })
     },
-    [setData],
+    [persist],
   )
 
   const addMatch = useCallback(
     (weekId: string) => {
-      setData((prev) => ({
-        ...prev,
-        weeks: prev.weeks.map((week) =>
+      persist({
+        ...dataRef.current,
+        weeks: dataRef.current.weeks.map((week) =>
           week.id === weekId && week.matches.length < 2 ? { ...week, matches: [...week.matches, emptyMatch()] } : week,
         ),
-      }))
+      })
     },
-    [setData],
+    [persist],
   )
 
   const updateMatch = useCallback(
     (weekId: string, matchId: string, patch: Partial<MatchInfo>) => {
-      setData((prev) => ({
-        ...prev,
-        weeks: prev.weeks.map((week) =>
+      persist({
+        ...dataRef.current,
+        weeks: dataRef.current.weeks.map((week) =>
           week.id !== weekId
             ? week
-            : {
-                ...week,
-                matches: week.matches.map((match) => (match.id === matchId ? { ...match, ...patch } : match)),
-              },
+            : { ...week, matches: week.matches.map((match) => (match.id === matchId ? { ...match, ...patch } : match)) },
         ),
-      }))
+      })
     },
-    [setData],
+    [persist],
   )
 
   const removeMatch = useCallback(
     (weekId: string, matchId: string) => {
-      setData((prev) => ({
-        ...prev,
-        weeks: prev.weeks.map((week) =>
+      persist({
+        ...dataRef.current,
+        weeks: dataRef.current.weeks.map((week) =>
           week.id !== weekId ? week : { ...week, matches: week.matches.filter((m) => m.id !== matchId) },
         ),
-      }))
+      })
     },
-    [setData],
+    [persist],
   )
 
-  const replaceAll = useCallback(
-    (next: AppData) => {
-      setData(next)
-    },
-    [setData],
-  )
-
-  const resetToSeed = useCallback(() => {
-    setData(seedData)
-  }, [setData])
+  const replaceAll = useCallback((next: AppData) => persist(next), [persist])
+  const resetToSeed = useCallback(() => persist(seedData), [persist])
 
   const value = useMemo<AppStoreValue>(
-    () => ({ data, addPlayer, renamePlayer, removePlayer, addWeek, removeWeek, addMatch, updateMatch, removeMatch, replaceAll, resetToSeed }),
-    [data, addPlayer, renamePlayer, removePlayer, addWeek, removeWeek, addMatch, updateMatch, removeMatch, replaceAll, resetToSeed],
+    () => ({
+      data,
+      loading,
+      loadError,
+      isEditUnlocked: editPassword !== null,
+      unlockEditing,
+      lockEditing,
+      addPlayer,
+      renamePlayer,
+      removePlayer,
+      addWeek,
+      removeWeek,
+      addMatch,
+      updateMatch,
+      removeMatch,
+      replaceAll,
+      resetToSeed,
+    }),
+    [
+      data,
+      loading,
+      loadError,
+      editPassword,
+      unlockEditing,
+      lockEditing,
+      addPlayer,
+      renamePlayer,
+      removePlayer,
+      addWeek,
+      removeWeek,
+      addMatch,
+      updateMatch,
+      removeMatch,
+      replaceAll,
+      resetToSeed,
+    ],
   )
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>
@@ -161,3 +248,5 @@ export function useAppStore(): AppStoreValue {
   if (!ctx) throw new Error('useAppStore must be used within an AppStoreProvider')
   return ctx
 }
+
+export { isSupabaseConfigured }

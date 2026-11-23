@@ -14,8 +14,6 @@ export interface MatchInfo {
   altVenue?: string
   /** Player ids called up for this match. */
   squad: string[]
-  /** Player ids in the alternate/reserve squad, if any. */
-  altSquad?: string[]
   coaches: string[]
 }
 

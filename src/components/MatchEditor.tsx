@@ -11,10 +11,9 @@ function parseCoaches(value: string): string[] {
 export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInfo }) {
   const { data, updateMatch, removeMatch } = useAppStore()
 
-  const togglePlayer = (field: 'squad' | 'altSquad', playerId: string) => {
-    const current = match[field] ?? []
-    const next = current.includes(playerId) ? current.filter((id) => id !== playerId) : [...current, playerId]
-    updateMatch(weekId, match.id, { [field]: next })
+  const toggleSquadPlayer = (playerId: string) => {
+    const next = match.squad.includes(playerId) ? match.squad.filter((id) => id !== playerId) : [...match.squad, playerId]
+    updateMatch(weekId, match.id, { squad: next })
   }
 
   return (
@@ -43,40 +42,21 @@ export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInf
         />
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase text-slate-500">Squad ({match.squad.length})</p>
-          <div className="flex flex-wrap gap-1">
-            {data.players.map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                onClick={() => togglePlayer('squad', player.id)}
-                className={`rounded-full px-2 py-1 text-xs ${
-                  match.squad.includes(player.id) ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {player.name}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="mb-1 text-xs font-medium uppercase text-slate-500">Alt squad ({match.altSquad?.length ?? 0})</p>
-          <div className="flex flex-wrap gap-1">
-            {data.players.map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                onClick={() => togglePlayer('altSquad', player.id)}
-                className={`rounded-full px-2 py-1 text-xs ${
-                  match.altSquad?.includes(player.id) ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {player.name}
-              </button>
-            ))}
-          </div>
+      <div className="mt-3">
+        <p className="mb-1 text-xs font-medium uppercase text-slate-500">Squad ({match.squad.length})</p>
+        <div className="flex flex-wrap gap-1">
+          {data.players.map((player) => (
+            <button
+              key={player.id}
+              type="button"
+              onClick={() => toggleSquadPlayer(player.id)}
+              className={`rounded-full px-2 py-1 text-xs ${
+                match.squad.includes(player.id) ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {player.name}
+            </button>
+          ))}
         </div>
       </div>
     </div>
