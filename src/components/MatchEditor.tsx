@@ -1,12 +1,5 @@
 import { useAppStore } from '../store/AppStore'
-import type { MatchInfo } from '../types'
-
-function parseCoaches(value: string): string[] {
-  return value
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
+import { COACH_NAMES, type MatchInfo } from '../types'
 
 export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInfo }) {
   const { data, updateMatch, removeMatch } = useAppStore()
@@ -14,6 +7,11 @@ export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInf
   const toggleSquadPlayer = (playerId: string) => {
     const next = match.squad.includes(playerId) ? match.squad.filter((id) => id !== playerId) : [...match.squad, playerId]
     updateMatch(weekId, match.id, { squad: next })
+  }
+
+  const toggleCoach = (name: string) => {
+    const next = match.coaches.includes(name) ? match.coaches.filter((c) => c !== name) : [...match.coaches, name]
+    updateMatch(weekId, match.id, { coaches: next })
   }
 
   return (
@@ -35,11 +33,6 @@ export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInf
         <LabeledInput label="Home team" value={match.homeTeam} onChange={(v) => updateMatch(weekId, match.id, { homeTeam: v })} />
         <LabeledInput label="Away team" value={match.awayTeam} onChange={(v) => updateMatch(weekId, match.id, { awayTeam: v })} />
         <LabeledInput label="Alt venue" value={match.altVenue ?? ''} onChange={(v) => updateMatch(weekId, match.id, { altVenue: v || undefined })} />
-        <LabeledInput
-          label="Coaches (comma separated)"
-          value={match.coaches.join(', ')}
-          onChange={(v) => updateMatch(weekId, match.id, { coaches: parseCoaches(v) })}
-        />
       </div>
 
       <div className="mt-3">
@@ -55,6 +48,24 @@ export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInf
               }`}
             >
               {player.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <p className="mb-1 text-xs font-medium uppercase text-slate-500">Coaches ({match.coaches.length})</p>
+        <div className="flex flex-wrap gap-1">
+          {COACH_NAMES.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => toggleCoach(name)}
+              className={`rounded-full px-2 py-1 text-xs ${
+                match.coaches.includes(name) ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {name}
             </button>
           ))}
         </div>

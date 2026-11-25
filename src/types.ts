@@ -3,6 +3,8 @@ export interface Player {
   name: string
 }
 
+export const COACH_NAMES = ['Lotta', 'Nina', 'Jonas', 'Peter', 'Mattias'] as const
+
 export interface MatchInfo {
   id: string
   day: string
@@ -14,6 +16,7 @@ export interface MatchInfo {
   altVenue?: string
   /** Player ids called up for this match. */
   squad: string[]
+  /** Names from COACH_NAMES picked for this match. */
   coaches: string[]
 }
 

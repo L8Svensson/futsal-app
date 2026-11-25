@@ -14,6 +14,29 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'summary', label: 'Call-up summary' },
 ]
 
+function SaveButton() {
+  const { saveStatus, saveNow, isEditUnlocked } = useAppStore()
+  const label = saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Save failed' : 'Save'
+
+  return (
+    <button
+      type="button"
+      onClick={saveNow}
+      disabled={!isEditUnlocked || saveStatus === 'saving'}
+      title={isEditUnlocked ? 'Changes save automatically; this re-confirms everything is saved.' : 'Unlock editing to save'}
+      className={`rounded px-3 py-1.5 text-sm font-medium ${
+        saveStatus === 'error'
+          ? 'bg-red-600 text-white'
+          : saveStatus === 'saved'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-slate-800 text-white hover:bg-slate-700'
+      } disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      {label}
+    </button>
+  )
+}
+
 function AppShell() {
   const [tab, setTab] = useState<Tab>('weeks')
   const { loading, loadError } = useAppStore()
@@ -27,6 +50,7 @@ function AppShell() {
         <h1 className="text-2xl font-bold text-slate-900">Futsal Match Call-ups</h1>
         <div className="flex flex-wrap items-center gap-2">
           <EditGate />
+          <SaveButton />
           <ImportExportBar />
         </div>
       </header>

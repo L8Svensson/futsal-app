@@ -10,6 +10,8 @@ interface AppStoreValue {
   loading: boolean
   loadError: string | null
   isEditUnlocked: boolean
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  saveNow: () => void
   unlockEditing: (password: string) => Promise<boolean>
   lockEditing: () => void
   addPlayer: (name: string) => void
@@ -41,6 +43,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [editPassword, setEditPassword] = useState<string | null>(() => sessionStorage.getItem(EDIT_PASSWORD_SESSION_KEY))
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const dataRef = useRef(data)
   dataRef.current = data
 
@@ -105,15 +108,23 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         window.alert('Editing is locked. Unlock it with the shared password first.')
         return
       }
+      setSaveStatus('saving')
       supabase.rpc('update_app_data', { payload: next, pw: editPassword }).then(({ error }) => {
         if (error) {
           setData(previous)
+          setSaveStatus('error')
           window.alert(`Could not save: ${error.message}`)
+        } else {
+          setSaveStatus('saved')
         }
       })
     },
     [editPassword],
   )
+
+  // Re-sends the current data as-is; mainly a visible confirmation that
+  // everything is saved, since every edit already persists immediately.
+  const saveNow = useCallback(() => persist(dataRef.current), [persist])
 
   const addPlayer = useCallback(
     (name: string) => {
@@ -207,6 +218,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       loading,
       loadError,
       isEditUnlocked: editPassword !== null,
+      saveStatus,
+      saveNow,
       unlockEditing,
       lockEditing,
       addPlayer,
@@ -225,6 +238,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       loading,
       loadError,
       editPassword,
+      saveStatus,
+      saveNow,
       unlockEditing,
       lockEditing,
       addPlayer,
