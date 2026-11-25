@@ -1,8 +1,10 @@
+import { useMemo } from 'react'
 import { useAppStore } from '../store/AppStore'
 import { COACH_NAMES, type MatchInfo } from '../types'
 
 export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInfo }) {
   const { data, updateMatch, removeMatch } = useAppStore()
+  const sortedPlayers = useMemo(() => data.players.slice().sort((a, b) => a.name.localeCompare(b.name)), [data.players])
 
   const toggleSquadPlayer = (playerId: string) => {
     const next = match.squad.includes(playerId) ? match.squad.filter((id) => id !== playerId) : [...match.squad, playerId]
@@ -38,7 +40,7 @@ export function MatchEditor({ weekId, match }: { weekId: string; match: MatchInf
       <div className="mt-3">
         <p className="mb-1 text-xs font-medium uppercase text-slate-500">Squad ({match.squad.length})</p>
         <div className="flex flex-wrap gap-1">
-          {data.players.map((player) => (
+          {sortedPlayers.map((player) => (
             <button
               key={player.id}
               type="button"

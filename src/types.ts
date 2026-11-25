@@ -3,7 +3,7 @@ export interface Player {
   name: string
 }
 
-export const COACH_NAMES = ['Lotta', 'Nina', 'Jonas', 'Peter', 'Mattias'] as const
+export const COACH_NAMES = ['Jonas', 'Lotta', 'Mattias', 'Nina', 'Peter'] as const
 
 export interface MatchInfo {
   id: string
