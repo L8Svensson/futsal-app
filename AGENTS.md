@@ -21,12 +21,14 @@ Data model (`src/types.ts`):
   needed — configuration lives in `src/index.css` via `@import "tailwindcss"`).
 - `xlsx` (SheetJS) for both the one-off seed generation script and in-app
   Excel import/export.
-- `@supabase/supabase-js` — shared data store. A single Postgres row
-  (`app_state`, id=1) holds the entire `AppData` as `jsonb`, publicly
-  readable by anyone with the site link, and writable only via a
-  password-checked Postgres RPC function (`update_app_data`). Supabase
-  Realtime pushes updates to every open tab. There is no custom backend
-  server — the static frontend talks to Supabase directly.
+- `@supabase/supabase-js` — shared data store, gated behind a real login. A
+  single Postgres row (`app_state`, id=1) holds the entire `AppData` as
+  `jsonb`. Row Level Security only allows `select`/`update` for the
+  `authenticated` Postgres role, so the data is invisible to anyone who
+  hasn't signed in. Everyone uses one shared Supabase Auth account (fixed
+  email + shared password) to sign in. Supabase Realtime pushes updates to
+  every signed-in open tab. There is no custom backend server — the static
+  frontend talks to Supabase directly.
 
 ## Project layout
 
@@ -38,8 +40,9 @@ src/
   utils/excelIO.ts            Browser import/export using the SheetJS `xlsx` package
   lib/supabaseClient.ts       Supabase client, built from VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY
   store/AppStore.tsx          React context: loads/subscribes to Supabase, exposes CRUD actions
-  components/                 PlayerManager, WeekList, MatchEditor, SummaryTable, ImportExportBar, EditGate
-supabase/schema.sql           SQL to run once in the Supabase SQL editor (tables, RLS, RPC functions)
+  components/                 PlayerManager, WeekList, MatchEditor, SummaryTable, ImportExportBar, LoginGate
+supabase/schema.sql           SQL to run once in the Supabase SQL editor for a fresh project (table, RLS)
+supabase/migration-login.sql  One-time migration for a project previously set up with the old password-RPC model
 scripts/generateSeed.ts       One-off script that re-parses the real .xlsx into src/data/seedData.ts
 .github/workflows/deploy.yml  Builds and deploys dist/ to GitHub Pages on push to main
 ```
@@ -60,20 +63,22 @@ Excel" feature, so both stay in sync.
 ## Shared Supabase backend setup (one-time)
 
 1. Create a free project at https://supabase.com.
-2. In the SQL editor, run `supabase/schema.sql` (creates `app_state` /
-   `app_secrets` tables, RLS policies, and the `update_app_data` /
-   `check_edit_password` RPC functions). Then set the real shared edit
-   password: `update app_secrets set edit_password = 'your-password' where id = 1;`
-3. In **Database > Replication**, enable Realtime for the `app_state` table.
-4. In **Project Settings > API**, copy the Project URL and `anon` public key.
-5. Local dev: copy `.env.example` to `.env.local` and fill in those two values.
-6. Deployment: add them as **GitHub repo secrets** named
+2. In the SQL editor, run `supabase/schema.sql` (creates `app_state` and its
+   login-gated RLS policies).
+3. In **Authentication > Users > Add user**, create the one shared login
+   (email + password), ticking **"Auto Confirm User"** so it works without an
+   email round-trip. Everyone who needs access uses this same login.
+4. In **Database > Replication**, enable Realtime for the `app_state` table.
+5. In **Project Settings > API**, copy the Project URL and `anon` public key.
+6. Local dev: copy `.env.example` to `.env.local` and fill in those two values.
+7. Deployment: add them as **GitHub repo secrets** named
    `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Settings > Secrets and
    variables > Actions) — the `deploy.yml` workflow reads them at build time.
 
-Anyone with the site link can view data; editing requires the shared
-password (checked server-side via RPC, not just a client-side gate) — this
-is adequate for a casual team tool, not for sensitive data.
+Nobody can view or edit data without first signing in with the shared login
+— this is enforced at the database level via RLS (`for ... to authenticated`
+policies), not just a client-side screen, so the data isn't reachable via the
+API either without a valid session.
 
 ## Deploying to GitHub Pages
 
@@ -107,4 +112,4 @@ there since it's pure and easy to verify against the real spreadsheet's
 - `AppStore.tsx` is the single source of truth for mutations; components
   should call its actions rather than talking to Supabase directly. Writes
   are optimistic (applied locally, then sent to Supabase) and roll back with
-  a `window.alert` if the server rejects them (e.g. wrong/missing password).
+  a `window.alert` if the server rejects them (e.g. the session expired).

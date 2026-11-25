@@ -4,7 +4,7 @@ import { WeekList } from './components/WeekList'
 import { PlayerManager } from './components/PlayerManager'
 import { SummaryTable } from './components/SummaryTable'
 import { ImportExportBar } from './components/ImportExportBar'
-import { EditGate } from './components/EditGate'
+import { LoginScreen, SignOutButton } from './components/LoginGate'
 
 type Tab = 'weeks' | 'players' | 'summary'
 
@@ -15,15 +15,15 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 function SaveButton() {
-  const { saveStatus, saveNow, isEditUnlocked } = useAppStore()
+  const { saveStatus, saveNow } = useAppStore()
   const label = saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Save failed' : 'Save'
 
   return (
     <button
       type="button"
       onClick={saveNow}
-      disabled={!isEditUnlocked || saveStatus === 'saving'}
-      title={isEditUnlocked ? 'Changes save automatically; this re-confirms everything is saved.' : 'Unlock editing to save'}
+      disabled={saveStatus === 'saving'}
+      title="Changes save automatically; this re-confirms everything is saved."
       className={`rounded px-3 py-1.5 text-sm font-medium ${
         saveStatus === 'error'
           ? 'bg-red-600 text-white'
@@ -39,8 +39,9 @@ function SaveButton() {
 
 function AppShell() {
   const [tab, setTab] = useState<Tab>('weeks')
-  const { loading, loadError } = useAppStore()
+  const { loading, loadError, session } = useAppStore()
 
+  if (!session) return <LoginScreen />
   if (loading) return <p className="p-6 text-slate-500">Loading…</p>
   if (loadError) return <p className="p-6 text-red-600">{loadError}</p>
 
@@ -49,9 +50,9 @@ function AppShell() {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900">Futsal Match Call-ups</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <EditGate />
           <SaveButton />
           <ImportExportBar />
+          <SignOutButton />
         </div>
       </header>
 

@@ -1,19 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient'
 import { seedData } from '../data/seedData'
 import type { AppData, MatchInfo, Player, Week } from '../types'
 
-const EDIT_PASSWORD_SESSION_KEY = 'futsal-edit-password'
+// One shared login everyone on the team uses; only the password varies per
+// person's memory, the email is just a fixed account identifier.
+const SHARED_LOGIN_EMAIL = 'futsal@futsal.com'
 
 interface AppStoreValue {
   data: AppData
   loading: boolean
   loadError: string | null
-  isEditUnlocked: boolean
+  session: Session | null
+  signIn: (password: string) => Promise<boolean>
+  signOut: () => void
   saveStatus: 'idle' | 'saving' | 'saved' | 'error'
   saveNow: () => void
-  unlockEditing: (password: string) => Promise<boolean>
-  lockEditing: () => void
   addPlayer: (name: string) => void
   renamePlayer: (id: string, name: string) => void
   removePlayer: (id: string) => void
@@ -42,21 +45,36 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<AppData>({ players: [], weeks: [] })
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [editPassword, setEditPassword] = useState<string | null>(() => sessionStorage.getItem(EDIT_PASSWORD_SESSION_KEY))
+  const [session, setSession] = useState<Session | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const dataRef = useRef(data)
   dataRef.current = data
 
-  // Initial load + realtime subscription so every open tab stays in sync.
+  // Track the login session; nothing is fetched until someone is signed in.
   useEffect(() => {
     if (!supabase) {
       setLoadError('Supabase is not configured (missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).')
       setLoading(false)
       return
     }
+    const client = supabase
+    client.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s)
+      if (!s) setLoading(false)
+    })
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((_event, s) => setSession(s))
+    return () => subscription.unsubscribe()
+  }, [])
 
+  // Once logged in, load the shared data and subscribe to realtime updates
+  // so every signed-in tab/user stays in sync.
+  useEffect(() => {
+    if (!supabase || !session) return
     let cancelled = false
     const client = supabase
+    setLoading(true)
     client
       .from('app_state')
       .select('data')
@@ -80,36 +98,30 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       cancelled = true
       client.removeChannel(channel)
     }
-  }, [])
+  }, [session])
 
-  const unlockEditing = useCallback(async (password: string) => {
+  const signIn = useCallback(async (password: string) => {
     if (!supabase) return false
-    const { data: ok, error } = await supabase.rpc('check_edit_password', { pw: password })
-    if (error || !ok) return false
-    sessionStorage.setItem(EDIT_PASSWORD_SESSION_KEY, password)
-    setEditPassword(password)
-    return true
+    const { error } = await supabase.auth.signInWithPassword({ email: SHARED_LOGIN_EMAIL, password })
+    return !error
   }, [])
 
-  const lockEditing = useCallback(() => {
-    sessionStorage.removeItem(EDIT_PASSWORD_SESSION_KEY)
-    setEditPassword(null)
+  const signOut = useCallback(() => {
+    supabase?.auth.signOut()
   }, [])
 
   // Optimistically applies `next` locally, then persists to Supabase; rolls
-  // back and surfaces an alert if the write is rejected (e.g. bad/missing password).
-  const persist = useCallback(
-    (next: AppData) => {
-      const previous = dataRef.current
-      setData(next)
-      if (!supabase) return
-      if (!editPassword) {
-        setData(previous)
-        window.alert('Editing is locked. Unlock it with the shared password first.')
-        return
-      }
-      setSaveStatus('saving')
-      supabase.rpc('update_app_data', { payload: next, pw: editPassword }).then(({ error }) => {
+  // back and surfaces an alert if the write is rejected.
+  const persist = useCallback((next: AppData) => {
+    const previous = dataRef.current
+    setData(next)
+    if (!supabase) return
+    setSaveStatus('saving')
+    supabase
+      .from('app_state')
+      .update({ data: next, updated_at: new Date().toISOString() })
+      .eq('id', 1)
+      .then(({ error }) => {
         if (error) {
           setData(previous)
           setSaveStatus('error')
@@ -118,9 +130,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           setSaveStatus('saved')
         }
       })
-    },
-    [editPassword],
-  )
+  }, [])
 
   // Re-sends the current data as-is; mainly a visible confirmation that
   // everything is saved, since every edit already persists immediately.
@@ -217,11 +227,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       data,
       loading,
       loadError,
-      isEditUnlocked: editPassword !== null,
+      session,
+      signIn,
+      signOut,
       saveStatus,
       saveNow,
-      unlockEditing,
-      lockEditing,
       addPlayer,
       renamePlayer,
       removePlayer,
@@ -237,11 +247,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       data,
       loading,
       loadError,
-      editPassword,
+      session,
+      signIn,
+      signOut,
       saveStatus,
       saveNow,
-      unlockEditing,
-      lockEditing,
       addPlayer,
       renamePlayer,
       removePlayer,
